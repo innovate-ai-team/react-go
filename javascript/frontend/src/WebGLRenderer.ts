@@ -8,13 +8,11 @@ export function startWebGL(canvas: HTMLCanvasElement): Renderer {
 
   const vert = gl.createShader(gl.VERTEX_SHADER)!
   gl.shaderSource(vert, `
-    attribute vec2 a_pos;
-    uniform float u_angle;
+    attribute vec3 a_pos;
+    uniform mat4 u_model;
+    uniform mat4 u_proj;
     void main(){
-      float c = cos(u_angle);
-      float s = sin(u_angle);
-      mat2 rot = mat2(c, -s, s, c);
-      gl_Position = vec4(rot * a_pos, 0.0, 1.0);
+      gl_Position = u_proj * u_model * vec4(a_pos, 1.0);
     }
   `)
   gl.compileShader(vert)
@@ -35,29 +33,44 @@ export function startWebGL(canvas: HTMLCanvasElement): Renderer {
   gl.useProgram(prog)
 
   const posLoc = gl.getAttribLocation(prog, 'a_pos')
-  const angleLoc = gl.getUniformLocation(prog, 'u_angle')
+  const modelLoc = gl.getUniformLocation(prog, 'u_model')
+  const projLoc = gl.getUniformLocation(prog, 'u_proj')
 
   const buf = gl.createBuffer()!
   gl.bindBuffer(gl.ARRAY_BUFFER, buf)
   const verts = new Float32Array([
-    0, 0.6,
-    -0.6, -0.6,
-    0.6, -0.6
+    0, 0.6, 0,
+    -0.6, -0.6, 0,
+    0.6, -0.6, 0
   ])
   gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW)
 
   gl.enableVertexAttribArray(posLoc)
-  gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0)
 
   let angle = 0
+  let modelMatrix = new Float32Array([
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1
+  ])
   let raf = 0
 
   function render(t: number) {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
     gl.clearColor(0.03, 0.03, 0.05, 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
-
-    gl.uniform1f(angleLoc, angle)
+    // set projection (simple orthographic)
+    const aspect = gl.canvas.width / gl.canvas.height
+    const proj = new Float32Array([
+      1/aspect,0,0,0,
+      0,1,0,0,
+      0,0,1,0,
+      0,0,0,1,
+    ])
+    gl.uniformMatrix4fv(projLoc, false, proj)
+    gl.uniformMatrix4fv(modelLoc, false, modelMatrix)
     gl.drawArrays(gl.TRIANGLES, 0, 3)
 
     raf = requestAnimationFrame(render)
@@ -67,6 +80,7 @@ export function startWebGL(canvas: HTMLCanvasElement): Renderer {
 
   return {
     setAngle(a: number) { angle = a },
+    setModelMatrix(m: number[]|Float32Array) { modelMatrix = new Float32Array(m) },
     dispose() { cancelAnimationFrame(raf) }
   }
 }

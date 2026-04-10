@@ -15,6 +15,13 @@ export default function App() {
         setAngle(msg.angle)
         renderer.setAngle(msg.angle)
       }
+      if (msg.type === 'transform' && Array.isArray(msg.matrix)) {
+        renderer.setModelMatrix(msg.matrix)
+      }
+      if (msg.type === 'heightmap') {
+        // optional: handle heightmap (not yet implemented in renderer)
+        console.log('received heightmap', msg.w, msg.h)
+      }
     })
 
     return () => {

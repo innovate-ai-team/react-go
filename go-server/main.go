@@ -26,7 +26,28 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
   for t := range ticker.C {
     angle := mathutils.AngleFromTime(t)
-    msg := map[string]any{"type": "tick", "angle": angle}
+
+    // Build a transform that rotates and slightly scales the model
+    tr := mathutils.Transform{
+      Position: mathutils.NewVec3(0, 0, 0),
+      Rotation: mathutils.NewVec3(0, angle, 0),
+      Scale:    mathutils.NewVec3(1+0.2*mathutils.FBM3(float64(t.UnixNano())/1e9, 0.1, 0.2, 2, 2.0, 0.5), 1, 1),
+    }
+    m := tr.Matrix()
+    // convert Mat4 to []float64
+    mat := make([]float64, 16)
+    for i := 0; i < 16; i++ {
+      mat[i] = m[i]
+    }
+
+    // Send tick and transform
+    msgTick := map[string]any{"type": "tick", "angle": angle}
+    if err := conn.WriteJSON(msgTick); err != nil {
+      log.Println("write json error:", err)
+      return
+    }
+
+    msg := map[string]any{"type": "transform", "id": "triangle", "matrix": mat}
     if err := conn.WriteJSON(msg); err != nil {
       log.Println("write json error:", err)
       return
@@ -43,6 +64,20 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
           enc := cipher.XOR([]byte(data), 0x7F)
           resp := map[string]any{"type": "cipher_resp", "data": enc}
           conn.WriteJSON(resp)
+        }
+        if req["type"] == "request_heightmap" {
+          // generate a small heightmap using FBM and send
+          w, h := 32, 32
+          heights := make([]float64, w*h)
+          for y := 0; y < h; y++ {
+            for x := 0; x < w; x++ {
+              fx := float64(x)/float64(w) * 8
+              fy := float64(y)/float64(h) * 8
+              heights[y*w+x] = mathutils.FBM3(fx, fy, float64(t.UnixNano())/1e9, 4, 2.0, 0.5)
+            }
+          }
+          hm := map[string]any{"type": "heightmap", "w": w, "h": h, "data": heights}
+          conn.WriteJSON(hm)
         }
       }
     }
