@@ -1,5 +1,7 @@
 # React-Go Graphics Engine (scaffold)
 
+[![CI](https://github.com/innovate-ai-team/react-go/actions/workflows/ci.yml/badge.svg)](https://github.com/innovate-ai-team/react-go/actions/workflows/ci.yml)
+
 This workspace contains a small scaffold demonstrating a WebGL renderer in a React + TypeScript frontend and a Go backend that streams angle updates over WebSocket and exposes tiny math/cipher utilities.
 
 Quick start
