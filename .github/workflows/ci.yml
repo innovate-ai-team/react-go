@@ -21,7 +21,8 @@ jobs:
       - name: Build Go server
         working-directory: go-server
         run: |
-          go mod download
+          # Ensure syscall/js package is available for module download (for wasm package)
+          GOOS=js GOARCH=wasm go mod download
           go build ./...
 
       - name: Run Go tests
