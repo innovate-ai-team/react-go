@@ -13,7 +13,26 @@ import (
 
 var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 
-func wsHandler(w http.ResponseWriter, r *http.Request) {
+func main() {
+  // generate a symmetric key for optional cipher responses
+  serverKey, err := cipher.NewKey()
+  if err != nil {
+    log.Println("failed to generate cipher key:", err)
+  } else {
+    log.Println("cipher key (base64):", serverKey)
+  }
+
+  // store key in closure for handlers
+  http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+    // attach serverKey to request context by capturing it in closure
+    wsHandlerWithKey(w, r, serverKey)
+  })
+
+  log.Println("Go server listening on :8080 (ws)")
+  log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func wsHandlerWithKey(w http.ResponseWriter, r *http.Request, serverKey string) {
   conn, err := upgrader.Upgrade(w, r, nil)
   if err != nil {
     log.Println("upgrade error:", err)
@@ -61,9 +80,15 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
       if err := json.Unmarshal(b, &req); err == nil {
         if req["type"] == "cipher" {
           data, _ := req["data"].(string)
-          enc := cipher.XOR([]byte(data), 0x7F)
-          resp := map[string]any{"type": "cipher_resp", "data": enc}
-          conn.WriteJSON(resp)
+          if serverKey != "" {
+            enc, err := cipher.EncryptBase64(serverKey, []byte(data))
+            if err != nil {
+              log.Println("cipher encrypt error:", err)
+            } else {
+              resp := map[string]any{"type": "cipher_resp", "data": enc}
+              conn.WriteJSON(resp)
+            }
+          }
         }
         if req["type"] == "request_heightmap" {
           // generate a small heightmap using FBM and send
@@ -82,10 +107,4 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
       }
     }
   }
-}
-
-func main() {
-  http.HandleFunc("/ws", wsHandler)
-  log.Println("Go server listening on :8080 (ws)")
-  log.Fatal(http.ListenAndServe(":8080", nil))
 }
