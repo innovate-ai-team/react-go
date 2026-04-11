@@ -6,7 +6,6 @@ package main
 import (
   "syscall/js"
   "react-go-server/mathutils"
-  "strconv"
 )
 
 // fbm3(x,y,z,octaves,lacunarity,gain) -> float64
